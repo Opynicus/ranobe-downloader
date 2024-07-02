@@ -45,7 +45,8 @@ novel_episode_mp: dict[str, str] = {}
 
 policy = asyncio.WindowsSelectorEventLoopPolicy()
 asyncio.set_event_loop_policy(policy)
-
+# 图片下载最大协程数
+semaphore = asyncio.Semaphore(400)
 
 def gen_content_opf(title, author):
     content = CONF_PREFIX
@@ -169,10 +170,9 @@ async def get_episode(episode_url, order, title: str):
     episode_title = soup.find(name="div", class_="col-xl-9 col-lg-8 p-r-30").find(name="h2").text
     content_block = soup.find(name="div", class_="forum-content mt-3")
     pic_tag = soup.find(name="div", class_="forum-content mt-3").find_all(name="img")
-    pic_url_list = []
+    pic_url_list = set()
     for p in pic_tag:
-        # illustration_url_list.append(p.get("src"))
-        pic_url_list.append(p.get("src"))
+        pic_url_list.add(p.get("src"))
     illustration_url_list.append({title: pic_url_list})
 
     novel_episode_mp[title + str(order)] = str(episode_title)
@@ -194,17 +194,19 @@ async def fetch_episode_art(title_illustration_url_list, title):
 
 async def download_illustration(illustration_url, title, name):
     logging.info(f"开始保存《{title}》图片: {illustration_url}")
-    try:
-        async with aiohttp.ClientSession(trust_env=True) as session:
-            async with session.get(illustration_url, cookies=cookies) as res:
-                result = await res.read()
-        pic_path = os.path.join(NOVEL_PATH, title, "OEBPS", "Images")
-        with open(os.path.join(pic_path, name), "wb") as pic:
-            pic.write(result)
-        logging.info(f"保存《{title}》图片: {illustration_url}成功")
-    except ConnectionResetError:
-        logging.warning(f"保存《{title}》图片: {illustration_url}失败， 因为远程主机强迫关闭了一个现有的连接")
-        await asyncio.sleep(0)
+    async with semaphore:
+        try:
+            async with aiohttp.ClientSession(trust_env=True) as session:
+                async with session.get(illustration_url, cookies=cookies) as res:
+                    result = await res.read()
+            pic_path = os.path.join(NOVEL_PATH, title, "OEBPS", "Images")
+            with open(os.path.join(pic_path, name), "wb") as pic:
+                pic.write(result)
+            logging.info(f"保存《{title}》图片: {illustration_url}成功")
+        except ConnectionResetError:
+            logging.warning(f"保存《{title}》图片: {illustration_url}失败， 因为远程主机强迫关闭了一个现有的连接")
+            await asyncio.sleep(0)
+    
 
 
 def create_title_page(title_dir):
