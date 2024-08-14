@@ -1,0 +1,13 @@
+esj_zone_config:
+  # your credentials
+  ews_key: ""
+  ews_token: ""
+  # your esjzone novel root path
+  esj_root_path: "./esjNovelGen"
+  # your esjzone novel output path
+  esj_output_path: "./esjNovelOutput"
+  # esjzone novel urls for download
+  esj_novel_urls:
+  #  - "https://www.esjzone.me/detail/1610937935.html"
+
+
